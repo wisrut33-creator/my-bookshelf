@@ -45,7 +45,7 @@
 
         #select-toolbar { display: none; justify-content: space-between; align-items: center; padding: 10px 15px; background: #b71c1c; color: white; font-weight: bold; animation: slideDown 0.3s; flex-shrink: 0; }
         @keyframes slideDown { from { transform: translateY(-10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        .select-all-btn { background: #ff8a80; color: #b71c1c; border: none; padding: 6px 15px; border-radius: 5px; font-weight: bold; cursor: margin-right: 10px; }
+        .select-all-btn { background: #ff8a80; color: #b71c1c; border: none; padding: 6px 15px; border-radius: 5px; font-weight: bold; cursor: pointer; margin-right: 10px; }
         .cancel-select-btn { background: #fff; color: #b71c1c; border: none; padding: 6px 15px; border-radius: 5px; font-weight: bold; cursor: pointer; }
         .delete-selected-btn { background: #ff5252; color: white; border: 1px solid #fff; padding: 6px 15px; border-radius: 5px; font-weight: bold; cursor: pointer; }
 
@@ -212,14 +212,15 @@
         </div>
     </div>
 
-    <!-- Viewer PDF -->
+    <!-- Viewer PDF (Continuous Scroll) -->
     <div id="viewer">
         <div id="viewer-header">
             <button id="close-btn" onclick="closeViewer()">◀ กลับชั้นหนังสือ</button>
             <span id="viewer-title"></span>
             
             <div class="viewer-actions">
-                <button id="native-pdf-btn" class="native-btn" style="display: none;">📤 ส่งออก PDF</button>
+                <!-- เปลี่ยนชื่อปุ่มตรงนี้ -->
+                <button id="native-pdf-btn" class="native-btn" style="display: none;">📤 แชร์ / เปิดในแอป...</button>
             </div>
         </div>
         
@@ -247,12 +248,14 @@
             <div id="pdf-scroll-area"></div>
         </div>
         
+        <!-- ตัวเล่นเสียงเดี่ยว -->
         <div id="audio-container">
             <div class="audio-icon">🎵</div>
             <h3 id="audio-title-display"></h3>
             <audio id="audio-player" controls></audio>
         </div>
 
+        <!-- ตัวเล่นเสียงลอยเหนือ PDF -->
         <div id="floating-audio-player">
             <div id="floating-audio-head" class="floating-audio-head">
                 <span>🎵</span>
@@ -268,7 +271,7 @@
         </div>
     </div>
 
-    <!-- Modals -->
+    <!-- Modal เลือกไฟล์เสียงขณะอ่าน PDF -->
     <div id="audio-picker-modal" class="modal">
         <div class="modal-content">
             <h3>🎵 เลือกไฟล์เสียง</h3>
@@ -281,6 +284,7 @@
         </div>
     </div>
 
+    <!-- Modal ตั้งค่าสื่อ -->
     <div id="edit-modal" class="modal">
         <div class="modal-content">
             <h3>⚙️ ตั้งค่าไฟล์/แฟ้ม</h3>
@@ -307,6 +311,7 @@
         </div>
     </div>
 
+    <!-- Modal จัดการหมวดหมู่ -->
     <div id="cat-modal" class="modal">
         <div class="modal-content">
             <h3>📂 จัดการหมวดหมู่</h3>
@@ -732,23 +737,27 @@
             });
         }
 
-        function openExternalPdf(item) {
+        // --- รื้อระบบดาวน์โหลดสำรองทิ้ง แล้วสั่งเปิดในแท็บใหม่แทน ---
+        async function openExternalPdf(item) {
             try {
                 const blob = new Blob([item.data], { type: 'application/pdf' });
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.style.display = 'none';
-                a.href = url;
-                a.download = item.name + ".pdf";
-                document.body.appendChild(a);
-                a.click();
-                setTimeout(() => {
-                    window.URL.revokeObjectURL(url);
-                    document.body.removeChild(a);
-                }, 1000);
-                alert("ส่งออกไฟล์สำเร็จ!\n\nไฟล์ PDF ถูกบันทึกไปที่โฟลเดอร์ดาวน์โหลดของเครื่องคุณแล้ว\nคุณสามารถเปิดจากแถบแจ้งเตือนด้านบนได้เลยครับ");
+                const file = new File([blob], item.name + ".pdf", { type: 'application/pdf' });
+
+                // ถ้ารองรับ Share API (มือถือบางรุ่น)
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({
+                        files: [file],
+                        title: item.name
+                    });
+                } else {
+                    // ถ้าไม่รองรับ ให้เปิดในแท็บใหม่ เพื่อเรียกแอปอื่นขึ้นมา
+                    const url = window.URL.createObjectURL(blob);
+                    window.open(url, '_blank');
+                }
             } catch (e) {
-                alert("เกิดข้อผิดพลาดในการส่งออกไฟล์: " + e.message);
+                if (e.name !== 'AbortError') {
+                    console.log("Share error:", e);
+                }
             }
         }
 
